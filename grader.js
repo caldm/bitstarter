@@ -24,7 +24,9 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
-var HTMLFILE_DEFAULT = "index.html";
+var rest = require('restler');
+var HTMLFILE_DEFAULT = "";
+var URL_DEFAULT = "";
 var CHECKSFILE_DEFAULT = "checks.json";
 
 var assertFileExists = function(infile) {
@@ -44,8 +46,8 @@ var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(htmlfile, checksfile) {
-    $ = cheerioHtmlFile(htmlfile);
+var checkCheeriod = function(cheeriod, checksfile) {
+    $ = cheeriod
     var checks = loadChecks(checksfile).sort();
     var out = {};
     for(var ii in checks) {
@@ -53,6 +55,9 @@ var checkHtmlFile = function(htmlfile, checksfile) {
         out[checks[ii]] = present;
     }
     return out;
+};
+var checkHtmlFile = function(htmlfile, checksfile) {
+    return checkCheeriod(cheerioHtmlFile(htmlfile), checksfile);
 };
 
 var clone = function(fn) {
@@ -64,11 +69,33 @@ var clone = function(fn) {
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
-        .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-f, --file <html_file>', 'Path to index.html', function(v) { return v.toString(); }, HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'URL to page', function(v) { return v.toString(); }, URL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    // if no url was passed check that a file was passed
+    if(program.url === URL_DEFAULT)
+    {
+        program.file = assertFileExists(program.file);
+        var checkJson = checkHtmlFile(program.file, program.checks);
+        var outJson = JSON.stringify(checkJson, null, 4);
+        console.log(outJson);
+    }
+    else
+    {
+        console.error("url passed: " + program.url);
+        rest.get(program.url).on('complete', function(result, response) {
+            if (result instanceof Error) {
+                console.error('Error: ' + util.format(response.message));
+            } else {
+                //console.error("Result: %s", result);
+                //console.error("Response: %s", response.toString());
+                var cheeriod = cheerio.load(result);
+                var checkJson = checkCheeriod(cheeriod, program.checks);
+                var outJson = JSON.stringify(checkJson, null, 4);
+                console.log(outJson);
+            }
+        });
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
