@@ -82,7 +82,6 @@ if(require.main == module) {
     }
     else
     {
-        console.error("url passed: " + program.url);
         rest.get(program.url).on('complete', function(result, response) {
             if (result instanceof Error) {
                 console.error('Error: ' + util.format(response.message));
